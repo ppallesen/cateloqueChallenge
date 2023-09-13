@@ -2,7 +2,12 @@ from fastapi.testclient import TestClient
 from main import app
 from test_data import *
 from random import random
-from matchings import get_sets_user_can_build, get_users_that_can_build_set
+from matchings import (
+    find_users_that_can_help_complete_the_set,
+    get_sets_user_can_build,
+    get_users_that_can_build_set,
+    find_missing_pieces,
+)
 import json
 
 client = TestClient(app)
@@ -34,7 +39,7 @@ def test_get_sets_by_name():
 def test_get_set_by_name_fails_in_a_good_way_if_wrong_name_is_provided():
     response = client.get(f"/api/set/by-name/{rng_string()}")
     assert response.status_code == 404
-    assert response.json()["detail"] == "Set not found"
+    assert response.json()["detail"] == "Item not found"
 
 
 def test_all_sets_can_be_fetched_and_all_the_pieces_are_not_included_in_that_case():
@@ -180,3 +185,120 @@ def test_get_set_information_by_id_get_all_information_including_all_the_users_t
     ):
         assert user_data["name"] == user.name
         assert list(user_data.keys()) == ["id", "name"]
+
+
+def test_find_missing_pieces():
+    user_piece_sets = [
+        PieceSet(piece_id=1, material_id=1, quantity=2),
+        PieceSet(piece_id=2, material_id=1, quantity=1),
+        PieceSet(piece_id=1, material_id=2, quantity=2),
+    ]
+    lego_set_pieces = [
+        PieceSet(piece_id=1, material_id=1, quantity=1),
+        PieceSet(piece_id=2, material_id=1, quantity=2),
+        PieceSet(piece_id=3, material_id=2, quantity=2),
+    ]
+    missing_pieces = find_missing_pieces(user_piece_sets, lego_set_pieces)
+    assert len(missing_pieces) == 2
+    missing_piece_1, missing_piece_2 = sorted(missing_pieces, key=lambda x: x.match_id)
+    assert missing_piece_1.model_dump() == {
+        "piece_id": 2,
+        "material_id": 1,
+        "quantity": 1,
+    }
+    assert missing_piece_2.model_dump() == {
+        "piece_id": 3,
+        "material_id": 2,
+        "quantity": 2,
+    }
+
+
+def test_find_users_that_can_be_used_to_combine_set():
+    set_ = LegoSet(
+        id=1,
+        name=rng_string(),
+        piece_sets=[
+            PieceSet(piece_id=1, material_id=1, quantity=2),
+            PieceSet(piece_id=2, material_id=1, quantity=2),
+        ],
+    )
+    main_user = User(
+        id=0,
+        name=rng_string(),
+        piece_sets=[PieceSet(piece_id=1, material_id=1, quantity=1)],
+    )
+    user_that_matches = User(
+        id=1,
+        name=rng_string(),
+        piece_sets=[
+            PieceSet(piece_id=1, material_id=1, quantity=1),
+            PieceSet(piece_id=2, material_id=1, quantity=2),
+        ],
+    )
+    users_that_does_not_have_all_needed = [
+        User(
+            id=2,
+            name=rng_string(),
+            piece_sets=[PieceSet(piece_id=2, material_id=1, quantity=2)],
+        ),
+        User(
+            id=3,
+            name=rng_string(),
+            piece_sets=[PieceSet(piece_id=1, material_id=1, quantity=1)],
+        ),
+    ]
+    users = [
+        main_user,
+        user_that_matches,
+    ] + users_that_does_not_have_all_needed
+    users_that_matches = find_users_that_can_help_complete_the_set(
+        set_, main_user, users
+    )
+    assert users_that_matches == [user_that_matches], [
+        user.id for user in users_that_matches
+    ]
+
+
+def test_missing_pieces_can_be_fetched_by_api():
+    set_ = [set_ for set_ in lego_set_test_data if set_.name == "tropical-island"][0]
+    main_user = [user for user in user_test_data if user.name == "landscape-artist"][0]
+    assert set_ not in get_sets_user_can_build(main_user, lego_set_test_data)
+    response = client.get(f"/api/collaborators?user_id={main_user.id}&set_id={set_.id}")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) > 0
+    assert any(item["name"] == "brickfan35" for item in data)
+    assert all("piece_sets" not in item for item in data)
+
+
+def test_find_users_to_complete_the_set_does_not_find_main_user():
+    set_ = LegoSet(
+        id=1,
+        name=rng_string(),
+        piece_sets=[
+            PieceSet(piece_id=1, material_id=1, quantity=2),
+        ],
+    )
+    main_user = User(
+        id=0,
+        name=rng_string(),
+        piece_sets=[PieceSet(piece_id=1, material_id=1, quantity=1)],
+    )
+    assert find_users_that_can_help_complete_the_set(set_, main_user, [main_user]) == []
+
+
+def test_good_error_is_thrown_if_user_can_build_set_without_help():
+    for set_ in lego_set_test_data:
+        if get_users_that_can_build_set(set_, user_test_data):
+            user = get_users_that_can_build_set(set_, user_test_data)[0]
+            response = client.get(
+                f"/api/collaborators?user_id={user.id}&set_id={set_.id}"
+            )
+            assert response.status_code == 418
+            assert (
+                response.json()["detail"]
+                == "The user can build the set without help. Please check it before you call"
+            )
+
+            return
+    assert False, "No user that build a set in mock data"

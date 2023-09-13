@@ -8,14 +8,13 @@ from schemas import (
     UserReduced,
     UserFull,
 )
-from matchings import get_sets_user_can_build, get_users_that_can_build_set
+from matchings import (
+    find_users_that_can_help_complete_the_set,
+    get_sets_user_can_build,
+    get_users_that_can_build_set,
+)
 
 app = FastAPI()
-
-
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
 
 
 @app.get("/api/users")
@@ -25,24 +24,18 @@ async def get_users() -> list[UserReduced]:
 
 
 @app.get("/api/user/by-name/{user_name}")
-async def user_summary(user_name):
+async def user_summary(user_name) -> User:
     # returns a summary of a single user
-    for user in user_test_data:
-        if user.name == user_name:
-            return user
-    raise HTTPException(status_code=404, detail="User not found")
+    return find_or_raise_error(user_test_data, user_name, "name")
 
 
 @app.get("/api/user/by-id/{user_id}")
-async def user_full_data(user_id: int):
+async def user_full_data(user_id: int) -> UserFull:
     # return the full data for a single user
-    for user in user_test_data:
-        if user.id == user_id:
-            return UserFull(
-                **user.model_dump(),
-                sets=get_sets_user_can_build(user, lego_set_test_data)
-            )
-    raise HTTPException(status_code=404, detail="User not found")
+    user = find_or_raise_error(user_test_data, user_id)
+    return UserFull(
+        **user.model_dump(), sets=get_sets_user_can_build(user, lego_set_test_data)
+    )
 
 
 @app.get("/api/sets")
@@ -54,21 +47,26 @@ async def get_sets() -> list[ReducedLegoSet]:
 @app.get("/api/set/by-name/{name}")
 async def get_sets_by_name(name) -> LegoSet:
     # returns a summary of a single set
-    for set_ in lego_set_test_data:
-        if set_.name == name:
-            return set_
-    raise HTTPException(status_code=404, detail="Set not found")
+    return find_or_raise_error(lego_set_test_data, name, "name")
+
+
+@app.get("/api/collaborators")
+async def get_collaborators(user_id: int, set_id: int) -> list[UserReduced]:
+    # Returns the users the user can collaborate with in order to finish the set
+    # If the user can finish the set them self the api fails. So call only this API
+    # for sets that the user cannot build them self.
+    user = find_or_raise_error(user_test_data, user_id)
+    set_ = find_or_raise_error(lego_set_test_data, set_id)
+    return find_users_that_can_help_complete_the_set(set_, user, user_test_data)
 
 
 @app.get("/api/set/by-id/{set_id}")
 async def get_sets_by_id(set_id: int) -> LegoSetWithUsersThatCanBuildIt:
     # returns the full data for a single set including the users that can build it
-    for set_ in lego_set_test_data:
-        if set_.id == set_id:
-            out = set_.model_dump()
-            out["can_build"] = get_users_that_can_build_set(set_, user_test_data)
-            return out
-    raise HTTPException(status_code=404, detail="Set not found")
+    set_ = find_or_raise_error(lego_set_test_data, set_id)
+    out = set_.model_dump()
+    out["can_build"] = get_users_that_can_build_set(set_, user_test_data)
+    return out
 
 
 @app.get("/api/colors")
@@ -77,3 +75,10 @@ async def get_colors() -> list[Color]:
     # https://rebrickable.com/api/v3/lego/colors/?key=b4e0697ce3d5cf21af1088e9bd238dd
     # I did not have a token
     return colors_test_data
+
+
+def find_or_raise_error(collection: list, value, field="id"):
+    for item in collection:
+        if getattr(item, field) == value:
+            return item
+    raise HTTPException(status_code=404, detail="Item not found")
