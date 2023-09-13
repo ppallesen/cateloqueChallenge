@@ -287,7 +287,7 @@ def test_find_users_to_complete_the_set_does_not_find_main_user():
     assert find_users_that_can_help_complete_the_set(set_, main_user, [main_user]) == []
 
 
-def test_good_error_is_thrown_if_user_can_build_set_without_help():
+def test_good_error_is_thrown_if_user_can_build_a_set_without_help_and_help_is_requested():
     for set_ in lego_set_test_data:
         if get_users_that_can_build_set(set_, user_test_data):
             user = get_users_that_can_build_set(set_, user_test_data)[0]
@@ -302,3 +302,9 @@ def test_good_error_is_thrown_if_user_can_build_set_without_help():
 
             return
     assert False, "No user that build a set in mock data"
+
+
+def test_find_largest_set_via_api():
+    response = client.get(f"/api/find-largest-set?p=0.5")
+    assert response.status_code == 200
+    assert response.json() == [{'piece_id': 1, 'material_id': 1, 'quantity': 2}]

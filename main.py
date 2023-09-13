@@ -7,12 +7,14 @@ from schemas import (
     ReducedLegoSet,
     UserReduced,
     UserFull,
+    PieceSet,
 )
 from matchings import (
     find_users_that_can_help_complete_the_set,
     get_sets_user_can_build,
     get_users_that_can_build_set,
 )
+from find_largest_set import find_largest_possible_set_that_most_can_build
 
 app = FastAPI()
 
@@ -75,6 +77,22 @@ async def get_colors() -> list[Color]:
     # https://rebrickable.com/api/v3/lego/colors/?key=b4e0697ce3d5cf21af1088e9bd238dd
     # I did not have a token
     return colors_test_data
+
+
+@app.get("/api/find-largest-set")
+async def get_largest_set(p: float) -> list[PieceSet]:
+    # returns the largest possible set that can be created, where p of the users
+    # can build it, where p is a ratio e.g. 0.5
+
+    return [
+        PieceSet(piece_id=piece_id, material_id=material_id, quantity=quantity)
+        for (
+            piece_id,
+            material_id,
+        ), quantity in find_largest_possible_set_that_most_can_build(
+            user_test_data, p
+        ).items()
+    ]
 
 
 def find_or_raise_error(collection: list, value, field="id"):
