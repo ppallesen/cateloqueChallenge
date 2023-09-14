@@ -6,7 +6,7 @@ Install python 3.9 or later on your machine
 then run 
 `pip install -r requirements.txt`
 
-To test the app `run uvicorn main:app`
+To test the app run `uvicorn main:app`
 
 and go to `http://localhost:8000/docs` to get an overview of the app and to test it
 
