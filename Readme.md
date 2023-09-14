@@ -1,5 +1,4 @@
-# The catalogue challenge - first iteration
-This is two hours into the challenge and I have managed to setup the repo and have passed tests on all the basic functionality. There is still allot of work missing, but you will see that in the following iterations.
+# The catalogue challenge
 
 ## Setup
 Install python 3.9 or later on your machine

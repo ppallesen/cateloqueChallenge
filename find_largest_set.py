@@ -21,31 +21,9 @@ def find_potential_pieces(users, min_n):
     }
 
 
-def find_largest_possible_set_that_most_can_build(users, p: float = 0.5):
-    min_n = int(len(users) * p)
-    assert min_n
-    potential_piece_count = find_potential_pieces(users, min_n)
-    if not potential_piece_count:
-        return {}
-
-    model = cp_model.CpModel()
-    pieces_selected_variables = {}
-    for match_id, quantity in potential_piece_count.items():
-        variables = [
-            model.NewIntVar(0, 1, str(match_id) + str(i)) for i in range(quantity)
-        ]
-        for i in range(quantity - 1):
-            # if you take the second of a piece in the set you also need to the first piece
-            model.Add(variables[i] >= variables[i + 1])
-        pieces_selected_variables[match_id] = variables
-
-    #
-    users_that_cant_assemble_the_set_variables = {
-        user.id: model.NewIntVar(0, 1, str(user.id)) for user in users
-    }
-
-    # Ensure that if one piece is missing then user can't count as a user
-    # that can build the set
+def ensure_that_if_one_piece_the_user_cant_be_counted_as_being_able_to_build(
+    model, users, users_that_cant_assemble_the_set_variables, pieces_selected_variables
+):
     for user in users:
         user_cant_assemble_var = users_that_cant_assemble_the_set_variables[user.id]
         pieces_count_user = {
@@ -67,6 +45,42 @@ def find_largest_possible_set_that_most_can_build(users, p: float = 0.5):
                 # If user does not have any of the pieces the user cant assemble the set
                 for var in pieces_selected_variable_list:
                     model.AddImplication(var, user_cant_assemble_var)
+
+
+def make_variables_and_model(users, min_n):
+    potential_piece_count = find_potential_pieces(users, min_n)
+    model = cp_model.CpModel()
+    pieces_selected_variables = {}
+    for match_id, quantity in potential_piece_count.items():
+        variables = [
+            model.NewIntVar(0, 1, str(match_id) + str(i)) for i in range(quantity)
+        ]
+        for i in range(quantity - 1):
+            # if you take the second of a piece in the set you also need to the first piece
+            model.Add(variables[i] >= variables[i + 1])
+        pieces_selected_variables[match_id] = variables
+
+    #
+    users_that_cant_assemble_the_set_variables = {
+        user.id: model.NewIntVar(0, 1, str(user.id)) for user in users
+    }
+    return model, pieces_selected_variables, users_that_cant_assemble_the_set_variables
+
+
+def find_largest_possible_set_that_most_can_build(users, p: float = 0.5):
+    min_n = int(len(users) * p)
+    (
+        model,
+        pieces_selected_variables,
+        users_that_cant_assemble_the_set_variables,
+    ) = make_variables_and_model(users, min_n)
+
+    ensure_that_if_one_piece_the_user_cant_be_counted_as_being_able_to_build(
+        model,
+        users,
+        users_that_cant_assemble_the_set_variables,
+        pieces_selected_variables,
+    )
 
     # There must be at least min_n users that can assemble the set
     model.Add(

@@ -1,6 +1,6 @@
 from schemas import User, PieceSet
-from test_app import rng_string
 from find_largest_set import find_largest_possible_set_that_most_can_build
+from conftest import client, rng_string
 
 
 def test_find_largest_set():
@@ -62,3 +62,9 @@ def test_find_largest_set():
         (3, 1): 6,
         (2, 1): 2,
     }
+
+
+def test_find_largest_set_via_api():
+    response = client.get(f"/api/find-largest-set?p=0.5")
+    assert response.status_code == 200
+    assert response.json() == [{"piece_id": 1, "material_id": 1, "quantity": 2}]

@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException
-from test_data import *
+from data_directory import *
 from schemas import (
     Color,
     LegoSet,
@@ -74,7 +74,7 @@ async def get_sets_by_id(set_id: int) -> LegoSetWithUsersThatCanBuildIt:
 @app.get("/api/colors")
 async def get_colors() -> list[Color]:
     # returns the full list of colors available
-    # https://rebrickable.com/api/v3/lego/colors/?key=b4e0697ce3d5cf21af1088e9bd238dd
+    # Considered using https://rebrickable.com/api/v3/lego/colors/?key=b4e0697ce3d5cf21af1088e9bd238dd
     # I did not have a token
     return colors_test_data
 

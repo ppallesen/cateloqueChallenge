@@ -39,11 +39,11 @@ def find_users_that_can_help_complete_the_set(
 ):
     missing_pieces = find_missing_pieces(main_user.piece_sets, set_.piece_sets)
     if not missing_pieces:
-        # This exception since there is no meaningfull answer
+        # This exception since there is no meaningful answer for the query otherwise
         raise HTTPException(
             status_code=418,
             detail="The user can build the set without help. Please check it before you call",
-        )
+        )  # Wondering if this error message is too passive-aggressive
 
     placeholder_lego_set = LegoSet(id=-1, name="", piece_sets=missing_pieces)
     return get_users_that_can_build_set(
