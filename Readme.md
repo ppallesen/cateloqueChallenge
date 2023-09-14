@@ -13,7 +13,7 @@ and go to `http://localhost:8000/docs` to get an overview of the app and to test
 To run the tests run `pytest`
 
 ## Design choices
-In order to make the smallest MVP I choose to not make a SQL-database. I choose that since I could get all my tests passing without it.
+In order to make the smallest MVP I choose to not make a SQL-database. Since it wasn't needed to fullfill the requirements of the challenge. 
 
 I made the most minimalistic file setup, since I can refactor it later
 
